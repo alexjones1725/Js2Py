@@ -10,7 +10,7 @@ def _init():
     if DID_INIT:
         return
     assert subprocess.call('node -v', shell=True, cwd=DIRNAME)==0, 'You must have node installed! run: brew install node'
-    assert subprocess.call('cd %s;npm install babel-core babel-cli babel-preset-es2015 babel-polyfill babelify browserify' % repr(DIRNAME), shell=True, cwd=DIRNAME)==0, 'Could not link required node_modules'
+    assert subprocess.call('cd %s;npm install @babel/core @babel/cli @babel/preset-env @babel/polyfill babelify browserify' % repr(DIRNAME), shell=True, cwd=DIRNAME)==0, 'Could not link required node_modules'
     DID_INIT = True
 
 ADD_TO_GLOBALS_FUNC = '''
@@ -48,7 +48,7 @@ def require(module_name, include_polyfill=False, update=False):
         out_file_name = 'tmp0out439341018923js2py.js'
         code = ADD_TO_GLOBALS_FUNC
         if include_polyfill:
-            code += "\n;require('babel-polyfill');\n"
+            code += "\n;require('@babel/polyfill');\n"
         code += """
         var module_temp_love_python = require(%s);
         addToGlobals(%s, module_temp_love_python);
@@ -62,7 +62,7 @@ def require(module_name, include_polyfill=False, update=False):
 
         # convert the module
         assert subprocess.call(
-            '''node -e "(require('browserify')('./%s').bundle(function (err,data) {fs.writeFile('%s', require('babel-core').transform(data, {'presets': require('babel-preset-es2015')}).code, ()=>{});}))"''' % (in_file_name, out_file_name),
+            '''node -e "(require('browserify')('./%s').bundle(function (err,data) {fs.writeFile('%s', require('@babel/core').transform(data, {'presets': [require('@babel/preset-env')]}).code, ()=>{});}))"''' % (in_file_name, out_file_name),
             shell=True,
             cwd=DIRNAME,
         )==0, 'Error when converting module to the js bundle'
