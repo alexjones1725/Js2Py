@@ -4,13 +4,24 @@ from .evaljs import translate_js
 import six
 DID_INIT = False
 DIRNAME = os.path.dirname(os.path.abspath(__file__))
-PY_NODE_MODULES_PATH = os.path.join(DIRNAME, 'py_node_modules')
+#PY_NODE_MODULES_PATH = os.path.join(DIRNAME, 'py_node_modules')
+PY_NODE_MODULES_PATH = os.path.join(DIRNAME, 'node_modules')
 def _init():
     global DID_INIT
     if DID_INIT:
         return
     assert subprocess.call('node -v', shell=True, cwd=DIRNAME)==0, 'You must have node installed! run: brew install node'
-    assert subprocess.call('cd %s;npm install @babel/core @babel/cli @babel/preset-env @babel/polyfill babelify browserify' % repr(DIRNAME), shell=True, cwd=DIRNAME)==0, 'Could not link required node_modules'
+    #assert subprocess.call('cd %s;npm install babel-core babel-cli babel-preset-es2015 babel-polyfill babelify browserify' % repr(DIRNAME), shell=True, cwd=DIRNAME)==0, 'Could not link required node_modules'
+    assert subprocess.call([
+        'npm',
+        'install',
+        'babel-core',
+        'babel-cli',
+        'babel-preset-es2015',
+        'babel-polyfill',
+        'babelify',
+        'browserify'
+    ], shell=True, cwd=DIRNAME)==0, 'Could not link required node_modules'
     DID_INIT = True
 
 ADD_TO_GLOBALS_FUNC = '''
@@ -42,13 +53,15 @@ def require(module_name, include_polyfill=False, update=False):
     py_name = module_name.replace('-', '_')
     module_filename = '%s.py'%py_name
     var_name = py_name.rpartition('/')[-1]
+	#print('NODE_MODULES_PATH path : ', os.path.join(NODE_MODULES_PATH, module_filename))
     if not os.path.exists(os.path.join(PY_NODE_MODULES_PATH, module_filename)) or update:
+    #if not os.path.exists(os.path.join(NODE_MODULES_PATH, module_filename)) or update:
         _init()
         in_file_name = 'tmp0in439341018923js2py.js'
         out_file_name = 'tmp0out439341018923js2py.js'
         code = ADD_TO_GLOBALS_FUNC
         if include_polyfill:
-            code += "\n;require('@babel/polyfill');\n"
+            code += "\n;require('babel-polyfill');\n"
         code += """
         var module_temp_love_python = require(%s);
         addToGlobals(%s, module_temp_love_python);
@@ -57,12 +70,19 @@ def require(module_name, include_polyfill=False, update=False):
             f.write(code.encode('utf-8') if six.PY3 else code)
 
         pkg_name = module_name.partition('/')[0]
+        print('pkg_name : ', pkg_name)
+        print('module_name : ', module_name)
         # make sure the module is installed
-        assert subprocess.call('cd %s;npm install %s' %(repr(DIRNAME), pkg_name), shell=True, cwd=DIRNAME)==0, 'Could not install the required module: ' + pkg_name
+        #assert subprocess.call('cd %s;npm install %s' %(repr(DIRNAME), pkg_name), shell=True, cwd=DIRNAME)==0, 'Could not install the required module: ' + pkg_name
+        assert subprocess.call([
+            'npm',
+            'install',
+			pkg_name
+        ], shell=True, cwd=DIRNAME)==0, 'Could not install the required module: ' + pkg_name
 
         # convert the module
         assert subprocess.call(
-            '''node -e "(require('browserify')('./%s').bundle(function (err,data) {fs.writeFile('%s', require('@babel/core').transform(data, {'presets': [require('@babel/preset-env')]}).code, ()=>{});}))"''' % (in_file_name, out_file_name),
+            '''node -e "(require('browserify')('./%s').bundle(function (err,data) {fs.writeFile('%s', require('babel-core').transform(data, {'presets': require('babel-preset-es2015')}).code, ()=>{});}))"''' % (in_file_name, out_file_name),
             shell=True,
             cwd=DIRNAME,
         )==0, 'Error when converting module to the js bundle'
@@ -89,4 +109,3 @@ def require(module_name, include_polyfill=False, update=False):
     context = {}
     exec(py_code, context)
     return context['var'][var_name].to_py()
-
